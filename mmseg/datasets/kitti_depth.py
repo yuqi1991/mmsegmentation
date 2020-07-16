@@ -11,6 +11,8 @@ from mmseg.utils import get_root_logger
 from .builder import DATASETS
 from .pipelines import Compose
 
+import json
+
 
 @DATASETS.register_module()
 class KittiDepthDataset(Dataset):
@@ -75,6 +77,8 @@ class KittiDepthDataset(Dataset):
                  num_scales=4,
                  split=None,
                  data_root=None,
+                 img_idx_file=None,
+                 idx_file=None,
                  test_mode=False,
                  ignore_index=255,
                  reduce_zero_label=False):
@@ -85,23 +89,38 @@ class KittiDepthDataset(Dataset):
         self.seg_map_suffix = seg_map_suffix
         self.depth_dir = depth_dir,
         self.depth_suffix = depth_suffix,
-        self.num_scales=num_scales,
+        self.num_scales = num_scales,
         self.split = split
         self.data_root = data_root
+        self.idx_file = idx_file
+        self.img_idx_file = img_idx_file
         self.test_mode = test_mode
         self.ignore_index = ignore_index
         self.reduce_zero_label = reduce_zero_label
 
         # join paths if data_root is specified
-        if self.data_root is not None:
-            if not osp.isabs(self.img_dir):
-                self.img_dir = osp.join(self.data_root, self.img_dir)
-            if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
-                self.ann_dir = osp.join(self.data_root, self.ann_dir)
-            if not (self.depth_dir is None or osp.isabs(self.depth_dir)):
-                self.depth_dir = osp.join(self.data_root, self.depth_dir)
-            if not (self.split is None or osp.isabs(self.split)):
-                self.split = osp.join(self.data_root, self.split)
+        # if self.data_root is not None:
+        #     if not osp.isabs(self.img_dir):
+        #         self.img_dir = osp.join(self.data_root, self.img_dir)
+        #     if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
+        #         self.ann_dir = osp.join(self.data_root, self.ann_dir)
+        #     if not (self.depth_dir is None or osp.isabs(self.depth_dir)):
+        #         self.depth_dir = osp.join(self.data_root, self.depth_dir)
+        #     if not (self.split is None or osp.isabs(self.split)):
+        #         self.split = osp.join(self.data_root, self.split)
+        if self.idx_file is not None and self.img_idx_file is not None:
+            self.idx_file = osp.join(self.data_root, self.idx_file)
+            self.img_idx_file = osp.join(self.data_root, self.img_idx_file)
+        else:
+            raise FileNotFoundError('Index File Not Defined')
+
+        with open(self.img_idx_file, 'r') as f:
+            self.img_idx_file = f.read().splitlines()
+            self.img_idx_file = [json.loads(line) for line in self.img_idx_file]
+        
+        with open(self.idx_file, 'r') as f:
+            self.idx_file = f.read().splitlines()
+            self.img_idx_file = [int(line) for line in self.img_idx_file]
 
         # load annotations
         self.img_infos = self.load_annotations(self.img_dir, self.img_suffix,

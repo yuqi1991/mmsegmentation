@@ -1,6 +1,6 @@
 # dataset settings
-dataset_type = 'KittiDepth'
-data_root = 'data/kitti_depth/'
+dataset_type = 'KittiDepthDataset'
+data_root = 'data/kitti_raw/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
@@ -44,18 +44,27 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='leftImg8bit/train',
-        ann_dir='gtFine/train',
+        img_suffix='.png',
+        img_idx_file='data_splits/custom_all_imgs.txt',
+        idx_file='data_splits/custom_train_index.txt',
+        img_dir='image_02/data',
+        depth_dir='proj_depth/groundtruth/image_02',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='leftImg8bit/val',
-        ann_dir='gtFine/val',
+        img_idx_file='data_splits/custom_all_imgs.txt',
+        idx_file='data_splits/custom_val_index.txt',
+        img_suffix='.png',
+        img_dir='image_02/data',
+        depth_dir='proj_depth/groundtruth/image_02',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        img_dir='leftImg8bit/val',
-        ann_dir='gtFine/val',
+        img_suffix='.png',
+        img_dir='image_02/data',
+        img_idx_file='data_splits/custom_all_imgs.txt',
+        idx_file='data_splits/custom_test_index.txt',
+        depth_dir='proj_depth/groundtruth/image_02',
         pipeline=test_pipeline))
