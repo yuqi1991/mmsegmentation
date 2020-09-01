@@ -10,7 +10,7 @@ from mmseg.core import mean_iou
 from mmseg.utils import get_root_logger
 from .builder import DATASETS
 from .pipelines import Compose
-
+from .utils import read_calib_file, transform_from_rot_trans
 import json
 
 
@@ -87,9 +87,9 @@ class KittiDepthDataset(Dataset):
         self.img_suffix = img_suffix
         self.ann_dir = ann_dir
         self.seg_map_suffix = seg_map_suffix
-        self.depth_dir = depth_dir,
-        self.depth_suffix = depth_suffix,
-        self.num_scales = num_scales,
+        self.depth_dir = depth_dir
+        self.depth_suffix = depth_suffix
+        self.num_scales = num_scales
         self.split = split
         self.data_root = data_root
         self.idx_file = idx_file
@@ -97,89 +97,33 @@ class KittiDepthDataset(Dataset):
         self.test_mode = test_mode
         self.ignore_index = ignore_index
         self.reduce_zero_label = reduce_zero_label
+        self.seq_id = [-1, 1]
 
-        # join paths if data_root is specified
-        # if self.data_root is not None:
-        #     if not osp.isabs(self.img_dir):
-        #         self.img_dir = osp.join(self.data_root, self.img_dir)
-        #     if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
-        #         self.ann_dir = osp.join(self.data_root, self.ann_dir)
-        #     if not (self.depth_dir is None or osp.isabs(self.depth_dir)):
-        #         self.depth_dir = osp.join(self.data_root, self.depth_dir)
-        #     if not (self.split is None or osp.isabs(self.split)):
-        #         self.split = osp.join(self.data_root, self.split)
+        self.pose_cache = {}
+        self.cam_cache = {}
+        self.imu2cam_cache = {}
+
         if self.idx_file is not None and self.img_idx_file is not None:
             self.idx_file = osp.join(self.data_root, self.idx_file)
             self.img_idx_file = osp.join(self.data_root, self.img_idx_file)
         else:
             raise FileNotFoundError('Index File Not Defined')
 
+        # read all img infos
         with open(self.img_idx_file, 'r') as f:
-            self.img_idx_file = f.read().splitlines()
-            self.img_idx_file = [json.loads(line) for line in self.img_idx_file]
-        
+            self.img_infos = f.read().splitlines()
+            self.img_infos = [json.loads(line) for line in self.img_infos]
+
+        # read all idx infos
         with open(self.idx_file, 'r') as f:
             self.idx_file = f.read().splitlines()
-            self.img_idx_file = [int(line) for line in self.img_idx_file]
+            self.idx_file = [int(line) for line in self.idx_file]
 
-        # load annotations
-        self.img_infos = self.load_annotations(self.img_dir, self.img_suffix,
-                                               self.ann_dir, self.seg_map_suffix,
-                                               self.depth_dir, self.depth_suffix,
-                                               self.split)
 
     def __len__(self):
         """Total number of samples of data."""
-        return len(self.img_infos)
+        return len(self.idx_file)
 
-    def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix,
-                         depth_dir, depth_suffix,
-                         split):
-        """Load annotation from directory.
-
-        Args:
-            img_dir (str): Path to image directory
-            img_suffix (str): Suffix of images.
-            ann_dir (str|None): Path to annotation directory.
-            seg_map_suffix (str|None): Suffix of segmentation maps.
-            split (str|None): Split txt file. If split is specified, only file
-                with suffix in the splits will be loaded. Otherwise, all images
-                in img_dir/ann_dir will be loaded. Default: None
-
-        Returns:
-            list[dict]: All image info of dataset.
-        """
-
-        img_infos = []
-        if split is not None:
-            with open(split) as f:
-                for line in f:
-                    img_name = line.strip()
-                    img_file = osp.join(img_dir, img_name + img_suffix)
-                    img_info = dict(filename=img_file)
-                    if ann_dir is not None:
-                        seg_map = osp.join(ann_dir, img_name + seg_map_suffix)
-                        img_info['ann'] = dict(seg_map=seg_map)
-                    if depth_dir is not None:
-                        depth_map = osp.join(depth_dir, img_name + depth_suffix)
-                        img_info['dep'] = dict(depth_map=depth_map)
-                    img_infos.append(img_info)
-        else:
-            for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
-                img_file = osp.join(img_dir, img)
-                img_info = dict(filename=img_file)
-                if ann_dir is not None:
-                    seg_map = osp.join(ann_dir,
-                                       img.replace(img_suffix, seg_map_suffix))
-                    img_info['ann'] = dict(seg_map=seg_map)
-                if depth_dir is not None:
-                    depth_map = osp.join(depth_dir,
-                                   img.replace(img_suffix, depth_suffix))
-                    img_info['dep'] = dict(depth_map=depth_map)
-                img_infos.append(img_info)
-
-        print_log(f'Loaded {len(img_infos)} images', logger=get_root_logger())
-        return img_infos
 
     def get_ann_info(self, idx):
         """Get annotation by index.
@@ -194,20 +138,59 @@ class KittiDepthDataset(Dataset):
         return self.img_infos[idx]['ann']
 
     def get_depth_info(self, idx):
-        """Get annotation by index.
 
-        Args:
-            idx (int): Index of data.
+        info = self.img_infos[idx]
+        path = osp.join(self.data_root,info['split'], info['sequence'],
+                        self.depth_dir, info['img']+self.depth_suffix)
+        return dict(filename=path)
 
-        Returns:
-            dict: Annotation info of specified index.
-        """
+    def get_img_info(self, idx):
+        info = self.img_infos[idx]
+        path = osp.join(self.data_root,info['split'], info['sequence'],
+                        self.img_dir, info['img']+self.img_suffix)
+        return dict(filename=path)
 
-        return self.img_infos[idx]['dep']
+    def get_pose(self, idx):
+        info = self.img_infos[idx]
+        path = osp.join(self.data_root,info['split'], info['sequence'],
+                        'image_02', 'poses.txt')
+        with open(path, 'r') as f:
+            all_poses = f.read().splitlines()
+        pose = all_poses[int(info['img'])].split(sep=' ')
+        pose = np.asarray(pose).reshape(3,4)
+        return pose
+
+    def get_cam_K(self, idx):
+        info = self.img_infos[idx]
+        path = osp.join(self.data_root,info['split'], info['sequence'],
+                        'image_02', 'cam.txt')
+        with open(path, 'r') as f:
+            raw_cam_K = [line.split(sep=' ') for line in f.read().splitlines()]
+            cam_K = []
+            for line in raw_cam_K:
+                cam_K.extend(line)
+            cam_K = np.asarray(cam_K).reshape(3,3)
+        return cam_K
+
+    def get_imu2cam(self, idx):
+        info = self.img_infos[idx]
+        cam2cam =  read_calib_file(osp.join(self.data_root, info['split'],
+                                            'calib_cam_to_cam.txt'))
+        imu2velo = read_calib_file(osp.join(self.data_root, info['split'],
+                                            'calib_imu_to_velo.txt'))
+        velo2cam = read_calib_file(osp.join(self.data_root, info['split'],
+                                            'calib_velo_to_cam.txt'))
+        velo2cam_mat = transform_from_rot_trans(velo2cam['R'], velo2cam['T'])
+        imu2velo_mat = transform_from_rot_trans(imu2velo['R'], imu2velo['T'])
+        cam_2rect_mat = transform_from_rot_trans(cam2cam['R_rect_00'], np.zeros(3))
+        imu2cam = cam_2rect_mat @ velo2cam_mat @ imu2velo_mat
+        return imu2cam
+
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
         results['seg_fields'] = []
+        results['depth_fields']= []
 
     def __getitem__(self, idx):
         """Get training/test data after pipeline.
@@ -236,10 +219,43 @@ class KittiDepthDataset(Dataset):
                 introduced by pipeline.
         """
 
-        img_info = self.img_infos[idx]
-        ann_info = self.get_ann_info(idx)
+        img_info = self.get_img_info(idx)
+        ref_img_info = [self.get_img_info(idx+id) for id in self.seq_id]
+
+        # ann_info = self.get_ann_info(idx)
         depth_info = self.get_depth_info(idx)
-        results = dict(img_info=img_info, ann_info=ann_info, depth_info=depth_info)
+
+        if idx not in self.pose_cache:
+            pose = self.get_pose(idx)
+            ref_pose = [self.get_pose(idx+id) for id in self.seq_id]
+            self.pose_cache[idx] = [pose].extend(ref_pose)
+        else:
+            pose = self.pose_cache[idx][0]
+            ref_pose = self.pose_cache[1:]
+
+        if idx not in self.cam_cache:
+            cam_K = self.get_cam_K(idx)
+            self.pose_cache[idx] = cam_K
+        else:
+            cam_K = self.cam_cache[idx]
+
+        if idx not in self.imu2cam_cache:
+            imu2cam = self.get_imu2cam(idx)
+        else:
+            imu2cam = self.imu2cam_cache[idx]
+
+
+        results = dict(img_info=img_info,
+                       # ann_info=ann_info,
+                       ref_img_info=ref_img_info,
+                       depth_info=depth_info,
+                       depth_suffix=self.depth_suffix,
+                       pose=pose,
+                       ref_pose=ref_pose,
+                       cam_K=cam_K,
+                       imu2cam=imu2cam,
+                       seq_id=self.seq_id)
+
         self.pre_pipeline(results)
         return self.pipeline(results)
 

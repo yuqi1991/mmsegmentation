@@ -11,9 +11,8 @@ intrinsic =[0.58, 0, 0.5, 0, 0, 1.92, 0.5, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
+    dict(type='LoadDepth'),
     dict(type='Resize', img_scale=(2048, 1024), ratio_range=(0.5, 2.0)),
-    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
@@ -48,6 +47,7 @@ data = dict(
         img_idx_file='data_splits/custom_all_imgs.txt',
         idx_file='data_splits/custom_train_index.txt',
         img_dir='image_02/data',
+        depth_suffix='.png',
         depth_dir='proj_depth/groundtruth/image_02',
         pipeline=train_pipeline),
     val=dict(
@@ -57,6 +57,7 @@ data = dict(
         idx_file='data_splits/custom_val_index.txt',
         img_suffix='.png',
         img_dir='image_02/data',
+        depth_suffix='.png',
         depth_dir='proj_depth/groundtruth/image_02',
         pipeline=test_pipeline),
     test=dict(
