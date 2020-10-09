@@ -174,7 +174,7 @@ class KittiDepthDataset(Dataset):
 
     def get_imu2cam(self, idx):
         info = self.img_infos[idx]
-        cam2cam =  read_calib_file(osp.join(self.data_root, info['split'],
+        cam2cam = read_calib_file(osp.join(self.data_root, info['split'],
                                             'calib_cam_to_cam.txt'))
         imu2velo = read_calib_file(osp.join(self.data_root, info['split'],
                                             'calib_imu_to_velo.txt'))
