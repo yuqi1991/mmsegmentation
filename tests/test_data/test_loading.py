@@ -1,18 +1,27 @@
 import copy
+import os
 import os.path as osp
 import tempfile
 
 import mmcv
 import numpy as np
 
-from mmseg.datasets.pipelines import LoadAnnotations, LoadImageFromFile
+from mmseg.datasets.pipelines import LoadAnnotations, LoadImageFromFile,LoadDepthFromFile
 
 
 class TestLoading(object):
 
     @classmethod
     def setup_class(cls):
-        cls.data_prefix = osp.join(osp.dirname(__file__), '../data')
+        cls.data_prefix = osp.join(os.getcwd(), 'data')
+
+    def test_load_depth(self):
+        results = dict(
+            depth_prefix=self.data_prefix, depth_info=dict(depth_file='points.npz'),depth_fields=[])
+        transform = LoadDepthFromFile(type='pcd')
+        results = transform(copy.deepcopy(results))
+        assert results['depth_fields'] == ['gt_depth']
+        assert results['gt_depth'].dtype in [np.uint8, np.float32]
 
     def test_load_img(self):
         results = dict(

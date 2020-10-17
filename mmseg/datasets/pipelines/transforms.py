@@ -196,6 +196,17 @@ class Resize(object):
                     results[key], results['scale'], interpolation='nearest')
             results['gt_semantic_seg'] = gt_seg
 
+    def _resize_depth(self, results):
+        """Resize semantic segmentation map with ``results['scale']``."""
+        for key in results.get('depth_fields', []):
+            if self.keep_ratio:
+                gt_seg = mmcv.imrescale(
+                    results[key], results['scale'], interpolation='lanczos')
+            else:
+                gt_seg = mmcv.imresize(
+                    results[key], results['scale'], interpolation='lanczos')
+            results['gt_depth'] = gt_seg
+
     def __call__(self, results):
         """Call function to resize images, bounding boxes, masks, semantic
         segmentation map.
@@ -212,6 +223,7 @@ class Resize(object):
             self._random_scale(results)
         self._resize_img(results)
         self._resize_seg(results)
+        self._resize_depth(results)
         return results
 
     def __repr__(self):
@@ -271,6 +283,12 @@ class RandomFlip(object):
                 # use copy() to make numpy stride positive
                 results[key] = mmcv.imflip(
                     results[key], direction=results['flip_direction']).copy()
+
+            # flip depth
+            for key in results.get('depth_fields', []):
+                # use copy() to make numpy stride positive
+                results[key] = mmcv.imflip(
+                    results[key], direction=results['flip_direction']).copy()
         return results
 
     def __repr__(self):
@@ -297,11 +315,13 @@ class Pad(object):
                  size=None,
                  size_divisor=None,
                  pad_val=0,
-                 seg_pad_val=255):
+                 seg_pad_val=255,
+                 depth_pad_val=0):
         self.size = size
         self.size_divisor = size_divisor
         self.pad_val = pad_val
         self.seg_pad_val = seg_pad_val
+        self.seg_pad_val = depth_pad_val
         # only one of size and size_divisor should be valid
         assert size is not None or size_divisor is not None
         assert size is None or size_divisor is None
@@ -325,6 +345,14 @@ class Pad(object):
             results[key] = mmcv.impad(
                 results[key],
                 shape=results['pad_shape'][:2],
+                pad_val=self.depth_pad_val)
+
+    def _pad_depth(self, results):
+        """Pad masks according to ``results['pad_shape']``."""
+        for key in results.get('depth_fields', []):
+            results[key] = mmcv.impad(
+                results[key],
+                shape=results['pad_shape'][:2],
                 pad_val=self.seg_pad_val)
 
     def __call__(self, results):
@@ -339,6 +367,7 @@ class Pad(object):
 
         self._pad_img(results)
         self._pad_seg(results)
+        self._pad_depth(results)
         return results
 
     def __repr__(self):
@@ -436,7 +465,7 @@ class RandomCrop(object):
 
         img = results['img']
         crop_bbox = self.get_crop_bbox(img)
-        if self.cat_max_ratio < 1.:
+        if self.cat_max_ratio < 1. and 'gt_semantic_seg' in results:
             # Repeat 10 times
             for _ in range(10):
                 seg_temp = self.crop(results['gt_semantic_seg'], crop_bbox)
@@ -455,6 +484,10 @@ class RandomCrop(object):
 
         # crop semantic seg
         for key in results.get('seg_fields', []):
+            results[key] = self.crop(results[key], crop_bbox)
+
+        # crop depth seg
+        for key in results.get('depth_fields', []):
             results[key] = self.crop(results[key], crop_bbox)
 
         return results
@@ -484,6 +517,10 @@ class SegRescale(object):
             dict: Result dict with semantic segmentation map scaled.
         """
         for key in results.get('seg_fields', []):
+            if self.scale_factor != 1:
+                results[key] = mmcv.imrescale(
+                    results[key], self.scale_factor, interpolation='nearest')
+        for key in results.get('depth_fields', []):
             if self.scale_factor != 1:
                 results[key] = mmcv.imrescale(
                     results[key], self.scale_factor, interpolation='nearest')

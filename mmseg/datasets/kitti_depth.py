@@ -74,14 +74,21 @@ class KittiDepthDataset(Dataset):
                  seg_map_suffix='.png',
                  depth_dir=None,
                  depth_suffix='.pcd',
+                 pose_file=None,
+                 cam_intrinc_file=None,
                  num_scales=4,
-                 split=None,
-                 data_root=None,
+                 split="",
+                 data_root="",
                  img_idx_file=None,
                  idx_file=None,
                  test_mode=False,
                  ignore_index=255,
+                 ref_seq_id=None,
                  reduce_zero_label=False):
+
+        if ref_seq_id is None:
+            ref_seq_id = [-1, 1]
+
         self.pipeline = Compose(pipeline)
         self.img_dir = img_dir
         self.img_suffix = img_suffix
@@ -94,10 +101,12 @@ class KittiDepthDataset(Dataset):
         self.data_root = data_root
         self.idx_file = idx_file
         self.img_idx_file = img_idx_file
+        self.pose_file = pose_file
+        self.cam_intrinc_file = cam_intrinc_file
         self.test_mode = test_mode
         self.ignore_index = ignore_index
         self.reduce_zero_label = reduce_zero_label
-        self.seq_id = [-1, 1]
+        self.ref_seq_id = ref_seq_id
 
         self.pose_cache = {}
         self.cam_cache = {}
@@ -153,7 +162,7 @@ class KittiDepthDataset(Dataset):
     def get_pose(self, idx):
         info = self.img_infos[idx]
         path = osp.join(self.data_root,info['split'], info['sequence'],
-                        'image_02', 'poses.txt')
+                        self.pose_file)
         with open(path, 'r') as f:
             all_poses = f.read().splitlines()
         pose = all_poses[int(info['img'])].split(sep=' ')
@@ -162,28 +171,36 @@ class KittiDepthDataset(Dataset):
 
     def get_cam_K(self, idx):
         info = self.img_infos[idx]
-        path = osp.join(self.data_root,info['split'], info['sequence'],
-                        'image_02', 'cam.txt')
-        with open(path, 'r') as f:
-            raw_cam_K = [line.split(sep=' ') for line in f.read().splitlines()]
-            cam_K = []
-            for line in raw_cam_K:
-                cam_K.extend(line)
-            cam_K = np.asarray(cam_K).reshape(3,3)
+        if info['split']+"_"+info['sequence'] not in self.imu2cam_cache:
+            path = osp.join(self.data_root,info['split'], info['sequence'],
+                            self.cam_intrinc_file)
+            with open(path, 'r') as f:
+                raw_cam_K = [line.split(sep=' ') for line in f.read().splitlines()]
+                cam_K = []
+                for line in raw_cam_K:
+                    cam_K.extend(line)
+                cam_K = np.asarray(cam_K).reshape(3,3)
+            self.cam_cache[info['split']+"_"+info['sequence']] = cam_K
+        else:
+            cam_K = self.cam_cache[info['split']+"_"+info['sequence']]
         return cam_K
 
     def get_imu2cam(self, idx):
         info = self.img_infos[idx]
-        cam2cam = read_calib_file(osp.join(self.data_root, info['split'],
-                                            'calib_cam_to_cam.txt'))
-        imu2velo = read_calib_file(osp.join(self.data_root, info['split'],
-                                            'calib_imu_to_velo.txt'))
-        velo2cam = read_calib_file(osp.join(self.data_root, info['split'],
-                                            'calib_velo_to_cam.txt'))
-        velo2cam_mat = transform_from_rot_trans(velo2cam['R'], velo2cam['T'])
-        imu2velo_mat = transform_from_rot_trans(imu2velo['R'], imu2velo['T'])
-        cam_2rect_mat = transform_from_rot_trans(cam2cam['R_rect_00'], np.zeros(3))
-        imu2cam = cam_2rect_mat @ velo2cam_mat @ imu2velo_mat
+        if info['split'] not in self.imu2cam_cache:
+            cam2cam = read_calib_file(osp.join(self.data_root, info['split'],
+                                                'calib_cam_to_cam.txt'))
+            imu2velo = read_calib_file(osp.join(self.data_root, info['split'],
+                                                'calib_imu_to_velo.txt'))
+            velo2cam = read_calib_file(osp.join(self.data_root, info['split'],
+                                                'calib_velo_to_cam.txt'))
+            velo2cam_mat = transform_from_rot_trans(velo2cam['R'], velo2cam['T'])
+            imu2velo_mat = transform_from_rot_trans(imu2velo['R'], imu2velo['T'])
+            cam_2rect_mat = transform_from_rot_trans(cam2cam['R_rect_00'], np.zeros(3))
+            imu2cam = cam_2rect_mat @ velo2cam_mat @ imu2velo_mat
+            self.imu2cam_cache[info['split']]=imu2cam
+        else:
+            imu2cam = self.imu2cam_cache[info['split']]
         return imu2cam
 
 
@@ -191,6 +208,7 @@ class KittiDepthDataset(Dataset):
         """Prepare results dict for pipeline."""
         results['seg_fields'] = []
         results['depth_fields']= []
+        return results
 
     def __getitem__(self, idx):
         """Get training/test data after pipeline.
@@ -218,45 +236,44 @@ class KittiDepthDataset(Dataset):
             dict: Training data and annotation after pipeline with new keys
                 introduced by pipeline.
         """
+        results = dict()
 
-        img_info = self.get_img_info(idx)
-        ref_img_info = [self.get_img_info(idx+id) for id in self.seq_id]
+        seq_idx = self.idx_file[idx]
+        img_info = self.get_img_info(seq_idx)
+        ref_img_info = [self.get_img_info(seq_idx+ref_id) for ref_id in self.ref_seq_id]
 
         # ann_info = self.get_ann_info(idx)
-        depth_info = self.get_depth_info(idx)
+        depth_info = self.get_depth_info(seq_idx)
 
-        if idx not in self.pose_cache:
-            pose = self.get_pose(idx)
-            ref_pose = [self.get_pose(idx+id) for id in self.seq_id]
-            self.pose_cache[idx] = [pose].extend(ref_pose)
+        if self.pose_file:
+            if seq_idx not in self.pose_cache:
+                pose = self.get_pose(seq_idx)
+                ref_pose = [self.get_pose(seq_idx+ref_id) for ref_id in self.ref_seq_id]
+                self.pose_cache[seq_idx] = [pose].extend(ref_pose)
+            else:
+                pose = self.pose_cache[seq_idx][0]
+                ref_pose = self.pose_cache[1:]
+            results.update(dict(with_pose_gt=True,
+                                pose=pose,
+                                ref_pose=ref_pose,))
         else:
-            pose = self.pose_cache[idx][0]
-            ref_pose = self.pose_cache[1:]
+            results.update(dict(with_pose_gt=False))
 
-        if idx not in self.cam_cache:
-            cam_K = self.get_cam_K(idx)
-            self.pose_cache[idx] = cam_K
-        else:
-            cam_K = self.cam_cache[idx]
+        imu2cam = self.get_imu2cam(seq_idx)
 
-        if idx not in self.imu2cam_cache:
-            imu2cam = self.get_imu2cam(idx)
-        else:
-            imu2cam = self.imu2cam_cache[idx]
+        if self.cam_intrinc_file is not None:
+            cam_K = self.get_cam_K(seq_idx)
+            results.update(dict(cam_K=cam_K))
 
-
-        results = dict(img_info=img_info,
+        results.update(dict(img_info=img_info,
                        # ann_info=ann_info,
                        ref_img_info=ref_img_info,
                        depth_info=depth_info,
                        depth_suffix=self.depth_suffix,
-                       pose=pose,
-                       ref_pose=ref_pose,
-                       cam_K=cam_K,
                        imu2cam=imu2cam,
-                       seq_id=self.seq_id)
+                       ref_seq_id=self.ref_seq_id))
 
-        self.pre_pipeline(results)
+        results = self.pre_pipeline(results)
         return self.pipeline(results)
 
     def prepare_test_img(self, idx):
@@ -270,9 +287,12 @@ class KittiDepthDataset(Dataset):
                 piepline.
         """
 
-        img_info = self.img_infos[idx]
+        results = dict()
+
+        seq_idx = self.idx_file[idx]
+        img_info = self.get_img_info(seq_idx)
         results = dict(img_info=img_info)
-        self.pre_pipeline(results)
+        results = self.pre_pipeline(results)
         return self.pipeline(results)
 
     def format_results(self, results, **kwargs):

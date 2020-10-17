@@ -210,3 +210,43 @@ def test_cascade_encoder_decoder():
     test_cfg = mmcv.Config(dict(mode='whole'))
     segmentor = build_segmentor(cfg, train_cfg=None, test_cfg=test_cfg)
     _segmentor_forward_train_test(segmentor)
+
+
+def test_encoder_decoder_depth():
+
+    # test 1 decode head, w.o. aux head
+    cfg = dict(
+        type='EncoderDecoderDepth',
+        backbone=dict(type='ExampleBackbone'),
+        decode_head=dict(type='ExampleDecodeHead'))
+    test_cfg = mmcv.Config(dict(mode='whole'))
+    segmentor = build_segmentor(cfg, train_cfg=dict(), test_cfg=test_cfg)
+    _segmentor_forward_train_test(segmentor)
+
+    # test slide mode
+    test_cfg = mmcv.Config(dict(mode='slide', crop_size=(3, 3), stride=(2, 2)))
+    segmentor = build_segmentor(cfg, train_cfg=dict(), test_cfg=test_cfg)
+    _segmentor_forward_train_test(segmentor)
+
+    # test 1 decode head, 1 aux head
+    cfg = dict(
+        type='EncoderDecoder',
+        backbone=dict(type='ExampleBackbone'),
+        decode_head=dict(type='ExampleDecodeHead'),
+        auxiliary_head=dict(type='ExampleDecodeHead'))
+    test_cfg = mmcv.Config(dict(mode='whole'))
+    segmentor = build_segmentor(cfg, train_cfg=None, test_cfg=test_cfg)
+    _segmentor_forward_train_test(segmentor)
+
+    # test 1 decode head, 2 aux head
+    cfg = dict(
+        type='EncoderDecoder',
+        backbone=dict(type='ExampleBackbone'),
+        decode_head=dict(type='ExampleDecodeHead'),
+        auxiliary_head=[
+            dict(type='ExampleDecodeHead'),
+            dict(type='ExampleDecodeHead')
+        ])
+    test_cfg = mmcv.Config(dict(mode='whole'))
+    segmentor = build_segmentor(cfg, train_cfg=None, test_cfg=test_cfg)
+    _segmentor_forward_train_test(segmentor)

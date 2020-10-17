@@ -5,6 +5,7 @@ from .custom import CustomDataset
 from .dataset_wrappers import ConcatDataset, RepeatDataset
 from .pascal_context import PascalContextDataset
 from .voc import PascalVOCDataset
+from .kitti_depth import KittiDepthDataset
 
 __all__ = [
     'CustomDataset', 'build_dataloader', 'ConcatDataset', 'RepeatDataset',

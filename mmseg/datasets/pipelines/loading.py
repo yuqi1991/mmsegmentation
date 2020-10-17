@@ -155,23 +155,27 @@ class LoadAnnotations(object):
 
 
 @PIPELINES.register_module()
-class LoadDepth(object):
+class LoadDepthFromFile(object):
     """Load depth
 
     Args:
         file_client_args (dict): Arguments to instantiate a FileClient.
             See :class:`mmcv.fileio.FileClient` for details.
             Defaults to ``dict(backend='disk')``.
-        imdecode_backend (str): Backend for :func:`mmcv.imdecode`. Default:
-            'pillow'
+        imdecode_backend (str): Backend for :func:`mmcv.imdecode`. Default: 'cv2'
     """
 
     def __init__(self,
+                 type='pcd',
                  file_client_args=dict(backend='disk'),
-                 imdecode_backend='pillow'):
-
-        self.file_client_args = None
+                 imdecode_backend='cv2'):
+        assert type in ['img', 'pcd']
+        self.type = type
+        self.file_client_args = file_client_args.copy()
         self.file_client = None
+        self.imdecode_backend = imdecode_backend
+
+
 
     def __call__(self, results):
         """Call function to load multiple types annotations.
@@ -188,20 +192,40 @@ class LoadDepth(object):
 
         if results.get('depth_prefix', None) is not None:
             filename = osp.join(results['depth_prefix'],
-                                results['depth_info']['depth_map'])
+                            results['depth_info']['filename'])
         else:
             filename = results['depth_info']['filename']
 
-        gt_depth_bytes = self.file_client.get(filename)
-        gt_depth = mmcv.imfrombytes(
-            gt_depth_bytes, flag='unchanged',
-            backend=None).astype(np.uint8)
-        gt_depth = read_png_depth(gt_depth)
+        gt_depth = None
+        # load depth map in gray img
+        if self.type == 'img':
+            gt_depth_bytes = self.file_client.get(filename)
+            gt_depth = mmcv.imfrombytes(
+                gt_depth_bytes, flag='unchanged', backend=None).astype(np.uint8)
+            # gt_depth = read_png_depth(gt_depth)
+
+        # load pcd file
+        elif self.type == 'pcd':
+            # try:
+            #     gt_depth_bytes = self.file_client.get(filename)
+            #     gt_depth = np.frombuffer(gt_depth_bytes, dtype=np.float32)
+            # except ConnectionError:
+            mmcv.check_file_exist(filename)
+            if filename.endswith('.npy'):
+                gt_depth = np.load(filename)
+            elif filename.endswith('.npz'):
+                gt_depth = np.load(filename)['velodyne_depth'].astype(np.float32) # for kitti usage by default
+                np.expand_dims(gt_depth, axis=2)
+            else:
+                gt_depth = np.fromfile(filename, dtype=np.float32)
+
         results['gt_depth'] = gt_depth
         results['depth_fields'].append('gt_depth')
         return results
 
     def __repr__(self):
         repr_str = self.__class__.__name__
+        repr_str += f"type='{self.type}'),"
         repr_str += f"imdecode_backend='{self.imdecode_backend}')"
         return repr_str
+
