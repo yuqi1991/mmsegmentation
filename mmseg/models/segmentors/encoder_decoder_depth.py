@@ -158,7 +158,9 @@ class EncoderDecoderDepth(BaseSegmentor):
         x = self.extract_feat(input_data)
 
         if self.with_pose_net:
-            x = self.pose_net(x)
+            pose = self.pose_net(x)
+        else:
+            pose = img_metas['pose']
 
         losses = dict()
 

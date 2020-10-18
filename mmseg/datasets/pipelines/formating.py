@@ -149,7 +149,7 @@ class ToDataContainer(object):
 
     def __init__(self,
                  fields=(dict(key='img',
-                              stack=True), dict(key='gt_semantic_seg'))):
+                              stack=True), dict(key='gt_semantic_seg'),dict(key='gt_depth'))):
         self.fields = fields
 
     def __call__(self, results):
@@ -203,11 +203,26 @@ class DefaultFormatBundle(object):
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
             results['img'] = DC(to_tensor(img), stack=True)
+
+        if 'ref_img' in results:
+            for i in range(len(results['ref_img'])):
+                ref_img = results['ref_img'][i]
+                if len(ref_img.shape) < 3:
+                    ref_img = np.expand_dims(ref_img, -1)
+                ref_img = np.ascontiguousarray(ref_img.transpose(2, 0, 1))
+                results['ref_img'][i] = DC(to_tensor(ref_img), stack=True)
+
         if 'gt_semantic_seg' in results:
             # convert to long
             results['gt_semantic_seg'] = DC(
                 to_tensor(results['gt_semantic_seg'][None,
                                                      ...].astype(np.int64)),
+                stack=True)
+        if 'gt_depth' in results:
+            # convert to long
+            results['gt_depth'] = DC(
+                to_tensor(results['gt_depth'][None,
+                                                     ...].astype(np.float32)),
                 stack=True)
         return results
 
@@ -277,10 +292,12 @@ class Collect(object):
         data = {}
         img_meta = {}
         for key in self.meta_keys:
-            img_meta[key] = results[key]
+            if key in results:
+                img_meta[key] = results[key]
         data['img_metas'] = DC(img_meta, cpu_only=True)
         for key in self.keys:
-            data[key] = results[key]
+            if key in results:
+                data[key] = results[key]
         return data
 
     def __repr__(self):

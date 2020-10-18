@@ -185,6 +185,13 @@ class Resize(object):
         results['scale_factor'] = scale_factor
         results['keep_ratio'] = self.keep_ratio
 
+    def _resize_ref_img(self,results):
+        assert 'scale_factor' in results, 'call _resize_img before resize ref img'
+        for i,ref_img in enumerate(results.get('ref_img',[])):
+            ref_img = mmcv.imrescale(
+                ref_img, results['scale_factor'][:2], return_scale=False).copy()
+            results['ref_img'][i] = ref_img
+
     def _resize_seg(self, results):
         """Resize semantic segmentation map with ``results['scale']``."""
         for key in results.get('seg_fields', []):
@@ -278,6 +285,10 @@ class RandomFlip(object):
             results['img'] = mmcv.imflip(
                 results['img'], direction=results['flip_direction'])
 
+            for i,ref_img in enumerate(results.get('ref_img',[])):
+                results['ref_img'][i] = mmcv.imflip(
+                    ref_img, direction=results['flip_direction']).copy()
+
             # flip segs
             for key in results.get('seg_fields', []):
                 # use copy() to make numpy stride positive
@@ -331,9 +342,19 @@ class Pad(object):
         if self.size is not None:
             padded_img = mmcv.impad(
                 results['img'], shape=self.size, pad_val=self.pad_val)
+
+            for i,ref_img in enumerate(results.get('ref_img',[])):
+                results['ref_img'][i] = mmcv.impad(
+                    ref_img, shape=self.size, pad_val=self.pad_val).copy()
+
         elif self.size_divisor is not None:
             padded_img = mmcv.impad_to_multiple(
                 results['img'], self.size_divisor, pad_val=self.pad_val)
+
+            for i,ref_img in enumerate(results.get('ref_img',[])):
+                results['ref_img'][i] = mmcv.impad(
+                    ref_img, shape=self.size, pad_val=self.pad_val).copy()
+
         results['img'] = padded_img
         results['pad_shape'] = padded_img.shape
         results['pad_fixed_size'] = self.size
@@ -408,6 +429,11 @@ class Normalize(object):
 
         results['img'] = mmcv.imnormalize(results['img'], self.mean, self.std,
                                           self.to_rgb)
+
+        for i,ref_img in enumerate(results.get('ref_img',[])):
+            results['ref_img'][i] = mmcv.imnormalize(
+            ref_img, self.mean, self.std, self.to_rgb).copy()
+
         results['img_norm_cfg'] = dict(
             mean=self.mean, std=self.std, to_rgb=self.to_rgb)
         return results
@@ -418,6 +444,68 @@ class Normalize(object):
                     f'{self.to_rgb})'
         return repr_str
 
+
+@PIPELINES.register_module()
+class Crop(object):
+    """Random crop the image & seg.
+
+    Args:
+        crop_size (tuple): Expected size after cropping, (h, w).
+        cat_max_ratio (float): The maximum ratio that single category could
+            occupy.
+    """
+
+    def __init__(self, crop_size):
+        assert len(crop_size) == 2 or len(crop_size) == 4
+        if len(crop_size) == 2:
+            assert crop_size[0] > 0 and crop_size[1] > 0
+            crop_size = [0,crop_size[0],0,crop_size[1]]
+        self.crop_size = crop_size
+
+
+
+    def crop(self, img, crop_bbox):
+        """Crop from ``img``"""
+        crop_y1, crop_y2, crop_x1, crop_x2 = crop_bbox
+        img = img[crop_y1:crop_y2, crop_x1:crop_x2, ...]
+        return img
+
+    def __call__(self, results):
+        """Call function to randomly crop images, semantic segmentation maps.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Randomly cropped results, 'img_shape' key in result dict is
+                updated according to crop size.
+        """
+
+        img = results['img']
+
+        # crop the image
+        img = self.crop(img, self.crop_size)
+        img_shape = img.shape
+        results['img'] = img
+        results['img_shape'] = img_shape
+
+        # crop ref imgs
+
+        for i, img in enumerate(results.get('ref_img', [])):
+            results['ref_img'][i] = self.crop(results['ref_img'][i], self.crop_size)
+
+        # crop semantic seg
+        for key in results.get('seg_fields', []):
+            results[key] = self.crop(results[key], self.crop_size)
+
+        # crop depth seg
+        for key in results.get('depth_fields', []):
+            results[key] = self.crop(results[key], self.crop_size)
+
+        return results
+
+    def __repr__(self):
+        return self.__class__.__name__ + f'(crop_size={self.crop_size})'
 
 @PIPELINES.register_module()
 class RandomCrop(object):
@@ -606,17 +694,7 @@ class PhotoMetricDistortion(object):
             img = mmcv.hsv2bgr(img)
         return img
 
-    def __call__(self, results):
-        """Call function to perform photometric distortion on images.
-
-        Args:
-            results (dict): Result dict from loading pipeline.
-
-        Returns:
-            dict: Result dict with images distorted.
-        """
-
-        img = results['img']
+    def process_(self,img):
         # random brightness
         img = self.brightness(img)
 
@@ -635,8 +713,23 @@ class PhotoMetricDistortion(object):
         # random contrast
         if mode == 0:
             img = self.contrast(img)
+        return img
 
-        results['img'] = img
+    def __call__(self, results):
+        """Call function to perform photometric distortion on images.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Result dict with images distorted.
+        """
+
+        results['img'] = self.process_(results['img']).copy()
+
+        for i,ref_img in enumerate(results.get('ref_img',[])):
+            results['ref_img'][i] = self.process_(results['ref_img'][i]).copy()
+
         return results
 
     def __repr__(self):

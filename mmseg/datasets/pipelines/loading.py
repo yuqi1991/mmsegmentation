@@ -40,6 +40,14 @@ class LoadImageFromFile(object):
         self.file_client = None
         self.imdecode_backend = imdecode_backend
 
+    def load_img_(self,abs_path):
+        img_bytes = self.file_client.get(abs_path)
+        img = mmcv.imfrombytes(
+            img_bytes, flag=self.color_type, backend=self.imdecode_backend)
+        if self.to_float32:
+            img = img.astype(np.float32)
+        return img
+
     def __call__(self, results):
         """Call functions to load image and get image meta information.
 
@@ -58,11 +66,18 @@ class LoadImageFromFile(object):
                                 results['img_info']['filename'])
         else:
             filename = results['img_info']['filename']
-        img_bytes = self.file_client.get(filename)
-        img = mmcv.imfrombytes(
-            img_bytes, flag=self.color_type, backend=self.imdecode_backend)
-        if self.to_float32:
-            img = img.astype(np.float32)
+
+        img = self.load_img_(filename)
+
+        results['ref_img'] = list()
+        for i,ref_img_info in enumerate(results.get('ref_img_info',[])):
+            if results.get('img_prefix') is not None:
+                filename = osp.join(results['img_prefix'],
+                                    ref_img_info['filename'])
+            else:
+                filename = ref_img_info['filename']
+            results['ref_img'].append(self.load_img_(filename))
+
 
         results['filename'] = filename
         results['ori_filename'] = results['img_info']['filename']

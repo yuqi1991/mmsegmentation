@@ -4,28 +4,27 @@ data_root = 'data/kitti_raw/'
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
-crop_size = (375, 1242)
-
-intrinsic =[0.58, 0, 0.5, 0, 0, 1.92, 0.5, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
+crop_size = (352, 1216)
+input_size = (176, 608)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadDepthFromFile'),
-    dict(type='Resize', img_scale=(2048, 1024), ratio_range=(0.5, 2.0)),
+    dict(type='Crop',crop_size=crop_size),
+    dict(type='Resize', img_scale=input_size, keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='PhotoMetricDistortion'),
     dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=255),
+    # dict(type='Pad', size=input_size, pad_val=0, seg_pad_val=255),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img','pcd', 'gt_depth']),
+    dict(type='Collect', keys=['img', 'gt_depth','ref_img','pose','ref_pose','cam_K','imu2cam','ref_seq_id']),
 ]
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(2048, 1024),
+        img_scale=input_size,
         # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
@@ -33,7 +32,7 @@ test_pipeline = [
             dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='Collect', keys=['img']),
+            dict(type='Collect', keys=['img','gt_depth']),
         ])
 ]
 

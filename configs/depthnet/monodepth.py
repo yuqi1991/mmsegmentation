@@ -48,7 +48,7 @@ model = dict(
 train_cfg = dict(mode='self-sup',         # or 'semi-sup' which will use depth_gt for loss calculation
                  sensor_mode='monocular', # or 'binocular'
                  pose_input_frame_cnt=2,  # frame in sequence
-                 independant_posenet=True, #
+                 independant_posenet=True,# active only in posenet config availble in modle dict
                  depth_loss_scales=[],    # scales used in the depth loss
                  avg_reprojection=False,
                  predictive_mask=False,
