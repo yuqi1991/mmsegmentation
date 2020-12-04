@@ -166,6 +166,7 @@ class KittiDepthDataset(Dataset):
         with open(path, 'r') as f:
             all_poses = f.read().splitlines()
         pose = all_poses[int(info['img'])].split(sep=' ')
+        pose = list(map(np.float32, pose))
         pose = np.asarray(pose).reshape(3,4)
         return pose
 
@@ -178,6 +179,7 @@ class KittiDepthDataset(Dataset):
                 raw_cam_K = [line.split(sep=' ') for line in f.read().splitlines()]
                 cam_K = []
                 for line in raw_cam_K:
+                    line = list(map(np.float32, line))
                     cam_K.extend(line)
                 cam_K = np.asarray(cam_K).reshape(3,3)
             self.cam_cache[info['split']+"_"+info['sequence']] = cam_K

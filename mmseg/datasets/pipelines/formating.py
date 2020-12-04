@@ -212,18 +212,30 @@ class DefaultFormatBundle(object):
                 ref_img = np.ascontiguousarray(ref_img.transpose(2, 0, 1))
                 results['ref_img'][i] = DC(to_tensor(ref_img), stack=True)
 
+        if 'pose' in results:
+            results['pose'] = DC(results['pose'],cpu_only=True,stack=False)
+
+        if 'ref_pose' in results:
+            results['ref_pose'] = [DC(ref_pose,cpu_only=True,stack=False) for ref_pose in results['ref_pose']]
+
+        if 'cam_K' in results:
+            results['cam_K'] = DC(results['cam_K'],cpu_only=True,stack=False)
+
+        if 'imu2cam' in results:
+            results['imu2cam'] = DC(results['imu2cam'],cpu_only=True,stack=False)
+
+        if 'ref_seq_id' in results:
+            results['ref_seq_id'] = DC(results['ref_seq_id'],cpu_only=True,stack=False)
+
         if 'gt_semantic_seg' in results:
             # convert to long
             results['gt_semantic_seg'] = DC(
                 to_tensor(results['gt_semantic_seg'][None,
-                                                     ...].astype(np.int64)),
-                stack=True)
+                                                     ...].astype(np.int64)),stack=True)
         if 'gt_depth' in results:
             # convert to long
             results['gt_depth'] = DC(
-                to_tensor(results['gt_depth'][None,
-                                                     ...].astype(np.float32)),
-                stack=True)
+                to_tensor(results['gt_depth'][None, ...].astype(np.float32)),stack=True)
         return results
 
     def __repr__(self):

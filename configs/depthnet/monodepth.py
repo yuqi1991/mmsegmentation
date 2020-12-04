@@ -3,7 +3,7 @@ _base_ = [
     '../_base_/schedules/schedule_20k.py'
 ]
 
-norm_cfg = dict(type='SyncBN', requires_grad=True)
+norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
     type='EncoderDecoderDepth',
     pretrained='open-mmlab://resnet50_v1c',
@@ -30,31 +30,24 @@ model = dict(
         align_corners=False,
         loss_decode=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
-    auxiliary_head=dict(
-        type='FCNHead',
-        in_channels=1024,
-        in_index=2,
-        channels=256,
-        num_convs=1,
-        concat_input=False,
-        dropout_ratio=0.1,
-        num_classes=19,
-        norm_cfg=norm_cfg,
-        align_corners=False,
-        loss_decode=dict(
-            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=0.4)))
+    posenet=dict(
+        type='PoseHead',
+        input_frame_cnt=2,     # frame in sequence
+        backbone_feat_as_input=True)
+)
 
 
 train_cfg = dict(mode='self-sup',         # or 'semi-sup' which will use depth_gt for loss calculation
                  sensor_mode='monocular', # or 'binocular'
-                 pose_input_frame_cnt=2,  # frame in sequence
-                 independant_posenet=True,# active only in posenet config availble in modle dict
-                 depth_loss_scales=[],    # scales used in the depth loss
-                 avg_reprojection=False,
-                 predictive_mask=False,
-                 no_ssim=False,
+                 depth_loss=dict(
+                     depth_loss_scales=[],    # scales used in the depth loss
+                     avg_reprojection=False,
+                     predictive_mask=False,
+                     no_ssim=False,
+
+                 ),
                  min_max_depth=(0.1, 100.0)
-                 )
+)
 
 test_cfg = dict(mode='whole')
 

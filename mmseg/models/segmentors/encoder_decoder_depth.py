@@ -94,13 +94,12 @@ class EncoderDecoderDepth(BaseSegmentor):
         #     align_corners=self.align_corners)
         return out
 
-    def _decode_head_forward_train(self, x, img_metas, gt_depth=None):
+    def _decode_head_forward_train(self, x, img_metas, **kwargs):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
         loss_decode = self.decode_head.forward_train(x, img_metas,
-                                                     gt_depth,
-                                                     self.train_cfg)
+                                                     self.train_cfg, **kwargs)
 
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
@@ -134,7 +133,7 @@ class EncoderDecoderDepth(BaseSegmentor):
 
         return depth_pred
 
-    def forward_train(self, img, img_metas, side_img=None, gt_depth=None, **kwargs):
+    def forward_train(self, img, img_metas, **kwargs):
         """Forward function for training.
 
         Args:
@@ -150,6 +149,10 @@ class EncoderDecoderDepth(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+
+        side_img = kwargs.get('side_img', None)
+        gt_depth = kwargs.get('gt_depth', None)
+
         if self.sensor_mode == 'binocular' and side_img is not None:
             input_data = torch.cat([img,side_img],dim=1)
         else:
@@ -158,24 +161,22 @@ class EncoderDecoderDepth(BaseSegmentor):
         x = self.extract_feat(input_data)
 
         if self.with_pose_net:
-            pose = self.pose_net(x)
-        else:
-            pose = img_metas['pose']
+            if self.pose_net.backbone_feat_as_input:
+                pose = self.pose_net(x)
+            else:
+                assert len(kwargs['ref_img']) >= self.pose_net.input_frame_cnt
+                pose = self.pose_net(img, ref_img=kwargs['ref_img'])
+            kwargs.update(dict(pose=pose))
 
         losses = dict()
 
-        if self.train_mode == 'self-sup':
-            gt_depth = None
-        else:
-            assert gt_depth is not None, "no gt_depth is loaded for semi-sup mode"
-
-        loss_decode = self._decode_head_forward_train(x, img_metas, gt_depth=gt_depth)
+        loss_decode = self._decode_head_forward_train(x, img_metas, **kwargs)
 
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
             loss_aux = self._auxiliary_head_forward_train(
-                x, img_metas, gt_depth)
+                x, img_metas, **kwargs)
             losses.update(loss_aux)
 
         return losses
