@@ -1,5 +1,64 @@
 ## Changelog
 
+### V0.9 (30/11/2020)
+
+**Highlights**
+
+- Support 4 medical dataset, UNet and CGNet.
+
+**New Features**
+
+- Support RandomRotate transform ([#215](https://github.com/open-mmlab/mmsegmentation/pull/215), [#260](https://github.com/open-mmlab/mmsegmentation/pull/260))
+- Support RGB2Gray transform ([#227](https://github.com/open-mmlab/mmsegmentation/pull/227))
+- Support Rerange transform ([#228](https://github.com/open-mmlab/mmsegmentation/pull/228))
+- Support ignore_index for BCE loss ([#210](https://github.com/open-mmlab/mmsegmentation/pull/210))
+- Add modelzoo statistics ([#263](https://github.com/open-mmlab/mmsegmentation/pull/263))
+- Support Dice evaluation metric ([#225](https://github.com/open-mmlab/mmsegmentation/pull/225))
+- Support Adjust Gamma transform ([#232](https://github.com/open-mmlab/mmsegmentation/pull/232))
+- Support CLAHE transform ([#229](https://github.com/open-mmlab/mmsegmentation/pull/229))
+
+**Bug Fixes**
+
+- Fixed detail API link ([#267](https://github.com/open-mmlab/mmsegmentation/pull/267))
+
+### V0.8 (03/11/2020)
+
+**Highlights**
+
+- Support 4 medical dataset, UNet and CGNet.
+
+**New Features**
+
+- Support customize runner ([#118](https://github.com/open-mmlab/mmsegmentation/pull/118))
+- Support UNet ([#161](https://github.com/open-mmlab/mmsegmentation/pull/162))
+- Support CHASE_DB1, DRIVE, STARE, HRD ([#203](https://github.com/open-mmlab/mmsegmentation/pull/203))
+- Support CGNet ([#223](https://github.com/open-mmlab/mmsegmentation/pull/223))
+
+### V0.7 (07/10/2020)
+
+**Highlights**
+
+- Support Pascal Context dataset and customizing class dataset.
+
+**Bug Fixes**
+
+- Fixed CPU inference ([#153](https://github.com/open-mmlab/mmsegmentation/pull/153))
+
+**New Features**
+
+- Add DeepLab OS16 models ([#154](https://github.com/open-mmlab/mmsegmentation/pull/154))
+- Support Pascal Context dataset ([#133](https://github.com/open-mmlab/mmsegmentation/pull/133))
+- Support customizing dataset classes ([#71](https://github.com/open-mmlab/mmsegmentation/pull/71))
+- Support customizing dataset palette ([#157](https://github.com/open-mmlab/mmsegmentation/pull/157))
+
+**Improvements**
+
+- Support 4D tensor output in ONNX ([#150](https://github.com/open-mmlab/mmsegmentation/pull/150))
+- Remove redundancies in ONNX export ([#160](https://github.com/open-mmlab/mmsegmentation/pull/160))
+- Migrate to MMCV DepthwiseSeparableConv ([#158](https://github.com/open-mmlab/mmsegmentation/pull/158))
+- Migrate to MMCV collect_env ([#137](https://github.com/open-mmlab/mmsegmentation/pull/137))
+- Use img_prefix and seg_prefix for loading ([#153](https://github.com/open-mmlab/mmsegmentation/pull/153))
+
 ### V0.6 (10/09/2020)
 
 **Highlights**

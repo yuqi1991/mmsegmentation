@@ -46,7 +46,7 @@ This project is released under the [Apache 2.0 license](LICENSE).
 
 ## Changelog
 
-v0.5.1 was released in 11/08/2020.
+v0.9.0 was released in 30/11/2020.
 Please refer to [changelog.md](docs/changelog.md) for details and release history.
 
 ## Benchmark and model zoo
@@ -81,6 +81,7 @@ Supported methods:
 - [x] [PointRend](configs/point_rend)
 - [x] [EMANet](configs/emanet)
 - [x] [DNLNet](configs/dnlnet)
+- [x] [CGNet](configs/cgnet)
 - [x] [Mixed Precision (FP16) Training](configs/fp16/README.md)
 
 ## Installation

@@ -66,7 +66,7 @@ model = dict(
         in_index=3,  # The index of feature map to select.
         channels=512,  # The intermediate channels of decode head.
         pool_scales=(1, 2, 3, 6),  # The avg pooling scales of PSPHead. Please refer to paper for details.
-        drop_out_ratio=0.1,  # The dropout ratio before final classification layer.
+        dropout_ratio=0.1,  # The dropout ratio before final classification layer.
         num_classes=19,  # Number of segmentation classs. Usually 19 for cityscapes, 21 for VOC, 150 for ADE20k.
         norm_cfg=dict(type='SyncBN', requires_grad=True),  # The configuration of norm layer.
         align_corners=False,  # The align_corners argument for resize in decoding.
@@ -81,7 +81,7 @@ model = dict(
         channels=256,  # The intermediate channels of decode head.
         num_convs=1,  # Number of convs in FCNHead. It is usually 1 in auxiliary head.
         concat_input=False,  # Whether concat output of convs with input before classification layer.
-        drop_out_ratio=0.1,  # The dropout ratio before final classification layer.
+        dropout_ratio=0.1,  # The dropout ratio before final classification layer.
         num_classes=19,  # Number of segmentation classs. Usually 19 for cityscapes, 21 for VOC, 150 for ADE20k.
         norm_cfg=dict(type='SyncBN', requires_grad=True),  # The configuration of norm layer.
         align_corners=False,  # The align_corners argument for resize in decoding.
@@ -226,7 +226,7 @@ dist_params = dict(backend='nccl')  # Parameters to setup distributed training, 
 log_level = 'INFO'  # The level of logging.
 load_from = None  # load models as a pre-trained model from a given path. This will not resume training.
 resume_from = None  # Resume checkpoints from a given path, the training will be resumed from the iteration when the checkpoint's is saved.
-workflow = [('train', 1)]  # Workflow for runner. [('train', 1)] means there is only one workflow and the workflow named 'train' is executed once. The workflow trains the model by 40000 iterations according to the total_iters.
+workflow = [('train', 1)]  # Workflow for runner. [('train', 1)] means there is only one workflow and the workflow named 'train' is executed once. The workflow trains the model by 40000 iterations according to the `runner.max_iters`.
 cudnn_benchmark = True  # Whether use cudnn_benchmark to speed up, which is fast for fixed input size.
 optimizer = dict(  # Config used to build optimizer, support all the optimizers in PyTorch whose arguments are also the same as those in PyTorch
     type='SGD',  # Type of optimizers, refer to https://github.com/open-mmlab/mmcv/blob/master/mmcv/runner/optimizer/default_constructor.py#L13 for more details
@@ -239,7 +239,9 @@ lr_config = dict(
     power=0.9,  # The power of polynomial decay.
     min_lr=0.0001,  # The minimum learning rate to stable the training.
     by_epoch=False)  # Whethe count by epoch or not.
-total_iters = 40000  # Total number of iterations.
+runner = dict(
+    type='IterBasedRunner', # Type of runner to use (i.e. IterBasedRunner or EpochBasedRunner)
+    max_iters=40000) # Total number of iterations. For EpochBasedRunner use `max_epochs`
 checkpoint_config = dict(  # Config to set the checkpoint hook, Refer to https://github.com/open-mmlab/mmcv/blob/master/mmcv/runner/hooks/checkpoint.py for implementation.
     by_epoch=False,  # Whethe count by epoch or not.
     interval=4000)  # The save interval.

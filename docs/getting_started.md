@@ -46,6 +46,34 @@ mmsegmentation
 │   │   │   ├── images
 │   │   │   │   ├── training
 │   │   │   │   ├── validation
+│   ├── CHASE_DB1
+│   │   ├── images
+│   │   │   ├── training
+│   │   │   ├── validation
+│   │   ├── annotations
+│   │   │   ├── training
+│   │   │   ├── validation
+│   ├── DRIVE
+│   │   ├── images
+│   │   │   ├── training
+│   │   │   ├── validation
+│   │   ├── annotations
+│   │   │   ├── training
+│   │   │   ├── validation
+│   ├── HRF
+│   │   ├── images
+│   │   │   ├── training
+│   │   │   ├── validation
+│   │   ├── annotations
+│   │   │   ├── training
+│   │   │   ├── validation
+│   ├── STARE
+│   │   ├── images
+│   │   │   ├── training
+│   │   │   ├── validation
+│   │   ├── annotations
+│   │   │   ├── training
+│   │   │   ├── validation
 
 ```
 
@@ -79,7 +107,7 @@ Please refer to [concat dataset](https://github.com/open-mmlab/mmsegmentation/bl
 ### ADE20K
 
 The training and validation set of ADE20K could be download from this [link](http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip).
-We may also download test set from [here](http://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip).
+We may also download test set from [here](http://data.csail.mit.edu/places/ADEchallenge/release_test.zip).
 
 ### Pascal Context
 
@@ -87,11 +115,59 @@ The training and validation set of Pascal Context could be download from [here](
 
 To split the training and validation set from original dataset, you may download trainval_merged.json from [here](https://codalabuser.blob.core.windows.net/public/trainval_merged.json).
 
-If you would like to use Pascal Context dataset, please install [Detail](https://github.com/ccvl/detail-api) and then run the following command to convert annotations into proper format.
+If you would like to use Pascal Context dataset, please install [Detail](https://github.com/zhanghang1989/detail-api) and then run the following command to convert annotations into proper format.
 
 ```shell
 python tools/convert_datasets/pascal_context.py data/VOCdevkit data/VOCdevkit/VOC2010/trainval_merged.json
 ```
+
+### CHASE DB1
+
+The training and validation set of CHASE DB1 could be download from [here](https://staffnet.kingston.ac.uk/~ku15565/CHASE_DB1/assets/CHASEDB1.zip).
+
+To convert CHASE DB1 dataset to MMSegmentation format, you should run the following command:
+
+```shell
+python tools/convert_datasets/chase_db1.py /path/to/CHASEDB1.zip
+```
+
+The script will make directory structure automatically.
+
+### DRIVE
+
+The training and validation set of DRIVE could be download from [here](https://drive.grand-challenge.org/). Before that, you should register an account. Currently '1st_manual' is not provided officially.
+
+To convert DRIVE dataset to MMSegmentation format, you should run the following command:
+
+```shell
+python tools/convert_datasets/drive.py /path/to/training.zip /path/to/test.zip
+```
+
+The script will make directory structure automatically.
+
+### HRF
+
+First, download [healthy.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/healthy.zip), [glaucoma.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/glaucoma.zip), [diabetic_retinopathy.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/diabetic_retinopathy.zip), [healthy_manualsegm.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/healthy_manualsegm.zip), [glaucoma_manualsegm.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/glaucoma_manualsegm.zip) and [diabetic_retinopathy_manualsegm.zip](https://www5.cs.fau.de/fileadmin/research/datasets/fundus-images/diabetic_retinopathy_manualsegm.zip).
+
+To convert HRF dataset to MMSegmentation format, you should run the following command:
+
+```shell
+python tools/convert_datasets/hrf.py /path/to/healthy.zip /path/to/healthy_manualsegm.zip /path/to/glaucoma.zip /path/to/glaucoma_manualsegm.zip /path/to/diabetic_retinopathy.zip /path/to/diabetic_retinopathy_manualsegm.zip
+```
+
+The script will make directory structure automatically.
+
+### STARE
+
+First, download [stare-images.tar](http://cecas.clemson.edu/~ahoover/stare/probing/stare-images.tar), [labels-ah.tar](http://cecas.clemson.edu/~ahoover/stare/probing/labels-ah.tar) and [labels-vk.tar](http://cecas.clemson.edu/~ahoover/stare/probing/labels-vk.tar).
+
+To convert STARE dataset to MMSegmentation format, you should run the following command:
+
+```shell
+python tools/convert_datasets/stare.py /path/to/stare-images.tar /path/to/labels-ah.tar /path/to/labels-vk.tar
+```
+
+The script will make directory structure automatically.
 
 ## Inference with pretrained models
 
@@ -176,7 +252,7 @@ Assume that you have already downloaded the checkpoints to the directory `checkp
     ```shell
     ./tools/dist_test.sh configs/pspnet/pspnet_r50-d8_512x1024_40k_cityscapes.py \
         checkpoints/pspnet_r50-d8_512x1024_40k_cityscapes_20200605_003338-2966598c.pth \
-        4 --format-only --options "imgfile_prefix=./pspnet_test_results"
+        4 --format-only --eval-options "imgfile_prefix=./pspnet_test_results"
     ```
 
     You will get png files under `./pspnet_test_results` directory.

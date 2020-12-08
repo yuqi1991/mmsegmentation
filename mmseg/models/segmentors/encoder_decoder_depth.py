@@ -161,7 +161,8 @@ class EncoderDecoderDepth(BaseSegmentor):
         x = self.extract_feat(input_data)
 
         if self.with_pose_net:
-            if self.pose_net.backbone_feat_as_input:
+            if hasattr(self.pose_net,'backbone_feat_as_input') \
+                    and self.pose_net.backbone_feat_as_input:
                 pose = self.pose_net(x)
             else:
                 assert len(kwargs['ref_img']) >= self.pose_net.input_frame_cnt

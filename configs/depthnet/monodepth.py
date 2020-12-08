@@ -30,10 +30,11 @@ model = dict(
         align_corners=False,
         loss_decode=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),
-    posenet=dict(
+    pose_net=dict(
         type='PoseHead',
+        backbone_channels= [256, 256, 512, 1024, 2048],
         input_frame_cnt=2,     # frame in sequence
-        backbone_feat_as_input=True)
+        )
 )
 
 
